@@ -1,4 +1,7 @@
-package PACKAGE_NAME;
-
-public class InvalidStatusException {
+public class InvalidStatusException extends Exception{
+    public InvalidStatusException(String message) {
+        super(message);
+    }
 }
+
+
