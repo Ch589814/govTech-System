@@ -4,197 +4,204 @@ import java.io.*;
 public class ApplicationManager implements ApplicationManagerInterface {
 
     private final List<ServiceApplication> applications;
+    private final String filename = "applications.txt";
 
     public ApplicationManager() {
         applications = new ArrayList<>();
     }
 
     @Override
-    public void addApplication(ServiceApplication application) {
-        applications.add(application);
+    public void addApplication(ServiceApplication app) {
+        if (app == null) {
+            throw new IllegalArgumentException("Application cannot be null");
+        }
+        applications.add(app);
+        System.out.println("Application added successfully!");
     }
 
     @Override
-    public ServiceApplication findApplication(String applicationId)
-            throws ApplicationNotFoundException {
-
+    public ServiceApplication findApplication(String applicationId) throws ApplicationNotFoundException {
         for (ServiceApplication app : applications) {
             if (app.getApplicationId().equals(applicationId)) {
                 return app;
             }
         }
-        throw new ApplicationNotFoundException("Application not found.");
+        throw new ApplicationNotFoundException("Application with ID " + applicationId + " not found!");
     }
 
     @Override
-    public void processApplication(String applicationId)
-            throws ApplicationNotFoundException, InvalidStatusException {
-
+    public void processApplication(String applicationId) throws ApplicationNotFoundException, InvalidStatusException {
         ServiceApplication app = findApplication(applicationId);
-        app.processApplication();
+
+        if (app == null) {
+            throw new ApplicationNotFoundException("Application not found!");
+        }
+
+        String status = app.getStatus();
+        if (!status.equals("PENDING")) {
+            throw new InvalidStatusException("Application status must be PENDING to process!");
+        }
+
+        System.out.println("Processing application: " + applicationId);
+        app.setStatus("PROCESSING");
+        System.out.println("Application is now being processed!");
+    }
+
+    @Override
+    public void removeApplication(String applicationId) {
+        boolean removed = applications.removeIf(app ->
+                app.getApplicationId().equals(applicationId));
+
+        if (removed) {
+            System.out.println("Application removed successfully!");
+        } else {
+            System.out.println("Application not found!");
+        }
+    }
+
+    @Override
+    public ServiceApplication searchApplication(String applicationId) {
+        for (ServiceApplication app : applications) {
+            if (app.getApplicationId().equals(applicationId)) {
+                return app;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public List<ServiceApplication> getAllApplications() {
+        return new ArrayList<>(applications);
+    }
+
+    @Override
+    public void approveApplication(String applicationId) {
+        ServiceApplication app = searchApplication(applicationId);
+
+        if (app != null) {
+            app.setStatus("APPROVED");
+            System.out.println("Application " + applicationId + " has been APPROVED!");
+        } else {
+            System.out.println("Application not found!");
+        }
+    }
+
+    @Override
+    public void rejectApplication(String applicationId) {
+        ServiceApplication app = searchApplication(applicationId);
+
+        if (app != null) {
+            app.setStatus("REJECTED");
+            System.out.println("Application " + applicationId + " has been REJECTED!");
+        } else {
+            System.out.println("Application not found!");
+        }
+    }
+
+    public void displayApplicationDetails(String applicationId) {
+        ServiceApplication app = searchApplication(applicationId);
+
+        if (app != null) {
+            System.out.println("\n" + app.toString());
+        } else {
+            System.out.println("Application not found!");
+        }
     }
 
     @Override
     public void displayAllApplications() {
         if (applications.isEmpty()) {
-            System.out.println("No applications available.");
+            System.out.println("\nNo applications found!");
             return;
         }
+
+        System.out.println("\n========== ALL APPLICATIONS ==========");
         for (ServiceApplication app : applications) {
-            System.out.println(app);
+            System.out.println(app.toString());
+            System.out.println("*****************************************");
         }
     }
-
-    // ---------------- Revenue Calculations ----------------
 
     @Override
     public double calculateTotalRevenue() {
-        double total = 0;
+        double totalRevenue = 0.0;
+
         for (ServiceApplication app : applications) {
             if (app.getStatus().equals("APPROVED")) {
-                total += app.getService().getFee();
+                // Get the fee from the service
+                Governmentservice service = app.getService();
+                totalRevenue += service.getFee();
             }
         }
-        return total;
+
+        return totalRevenue;
     }
 
-    public void calculateRevenueByService() {
-        Map<String, Double> revenueMap = new HashMap<>();
+    public int getTotalApplications() {
+        return applications.size();
+    }
+
+    public int getApprovedApplications() {
+        int count = 0;
         for (ServiceApplication app : applications) {
             if (app.getStatus().equals("APPROVED")) {
-                String serviceName = app.getService().getServicename();
-                double fee = app.getService().getFee();
-                revenueMap.put(serviceName, revenueMap.getOrDefault(serviceName, 0.0) + fee);
+                count++;
             }
         }
-
-        System.out.println("\n------ Revenue By Service Type ------");
-        for (String service : revenueMap.keySet()) {
-            System.out.println(service + " Revenue: " + revenueMap.get(service));
-        }
-        System.out.println("-------------------------------------");
+        return count;
     }
 
-    public void generateSummaryReport() {
-        int approved = 0;
-        int rejected = 0;
-        int pending = 0;
-
+    public int getRejectedApplications() {
+        int count = 0;
         for (ServiceApplication app : applications) {
-            switch (app.getStatus()) {
-                case "APPROVED" -> approved++;
-                case "REJECTED" -> rejected++;
-                default -> pending++;
+            if (app.getStatus().equals("REJECTED")) {
+                count++;
             }
         }
-
-        System.out.println("\n********** SUMMARY REPORT *********");
-        System.out.println("Approved Applications: " + approved);
-        System.out.println("Rejected Applications: " + rejected);
-        System.out.println("Pending Applications: " + pending);
-        System.out.println("Total Revenue (Approved Only): " + calculateTotalRevenue());
+        return count;
     }
 
+    public int getPendingApplications() {
+        int count = 0;
+        for (ServiceApplication app : applications) {
+            if (app.getStatus().equals("PENDING")) {
+                count++;
+            }
+        }
+        return count;
+    }
 
-
-    // Save all applications
-    public void saveToFile(String fileName) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
+    @Override
+    public void saveToFile() throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(filename))) {
             for (ServiceApplication app : applications) {
-                writer.write(app.toString());
+                writer.write(app.toFileString());
                 writer.newLine();
             }
-            System.out.println("Applications saved successfully.");
+            System.out.println("All applications saved to file successfully!");
         } catch (IOException e) {
-            System.out.println("Error saving applications: " + e.getMessage());
+            System.out.println("Error saving to file: " + e.getMessage());
+            throw e;
         }
     }
 
-    // Save single application
-    public void saveToFileAppend(String fileName, ServiceApplication app) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
-            writer.write(app.toString());
-            writer.newLine();
-            System.out.println("Application appended successfully: " + app.getApplicationId());
-        } catch (IOException e) {
-            System.out.println("Error saving application: " + e.getMessage());
-        }
-    }
-
-    // Load applications from file
-    public void loadFromFile(String fileName) {
-        File file = new File(fileName);
-        if (!file.exists()) return;
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
+    @Override
+    public void loadFromFile() throws IOException {
+        applications.clear();
+        try (BufferedReader reader = new BufferedReader(new FileReader(filename))) {
             String line;
-
             while ((line = reader.readLine()) != null) {
-                // Assuming format: id,citizenName,serviceName,serviceDetail,status
-                String[] parts = line.split(",", 5);
-                if (parts.length < 5) continue;
-
-                String id = parts[0];
-                String citizenName = parts[1];
-                String serviceName = parts[2];
-                String serviceDetail = parts[3];
-                String status = parts[4];
-
-                Citizen citizen = new Citizen(citizenName, "");
-
-                Governmentservice service = null;
-                switch (serviceName) {
-                    case "Birth Certificate Service" -> service = new BirthCertificateService(serviceDetail);
-                    case "Driving Test Service" -> service = new Drivingtestservice(15);
-                    // Add other service types here if you have them
-                }
-
-                if (service == null) continue;
-
-                ServiceApplication app = new ServiceApplication(citizen, service);
-                app.setApplicationId(id);
-                app.setStatus(status);
-
-                applications.add(app);
-
-                System.out.println("Loaded Record: " + app);
-            }
-
-            System.out.println("Previous applications loaded successfully.");
-
-        } catch (IOException e) {
-            System.out.println("Error loading file: " + e.getMessage());
-        }
-    }
-
-    // Generate revenue report file
-    public void generateRevenueReportFile(String fileName) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
-            writer.write("GOVERNMENT SERVICE REVENUE REPORT:");
-            writer.newLine();
-            writer.write("Total Revenue (Approved Only): " + calculateTotalRevenue());
-            writer.newLine();
-            writer.write("-----------------------------------------------");
-            writer.newLine();
-
-            Map<String, Double> revenueMap = new HashMap<>();
-            for (ServiceApplication app : applications) {
-                if (app.getStatus().equals("APPROVED")) {
-                    String serviceName = app.getService().getServicename();
-                    double fee = app.getService().getFee();
-                    revenueMap.put(serviceName, revenueMap.getOrDefault(serviceName, 0.0) + fee);
+                if (!line.isEmpty()) {
+                    ServiceApplication app = ServiceApplication.fromFileString(line);
+                    applications.add(app);
                 }
             }
-
-            for (String service : revenueMap.keySet()) {
-                writer.write(service + " Revenue: " + revenueMap.get(service));
-                writer.newLine();
-            }
-
-            System.out.println("Revenue report saved successfully.");
-
+            System.out.println("All applications loaded from file successfully!");
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found. Starting with empty application list.");
         } catch (IOException e) {
-            System.out.println("Error generating revenue report: " + e.getMessage());
+            System.out.println("Error loading from file: " + e.getMessage());
+            throw e;
         }
     }
 }
