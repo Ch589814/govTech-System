@@ -13,8 +13,7 @@ public abstract class  Governmentservice {
         return  fee;
     }
     //abstract methods
-    public  abstract  String gettservicetype();
+    public  abstract  String getservicetype();
     public abstract boolean processService();
-
     public abstract String getServiceDetails();
 }
